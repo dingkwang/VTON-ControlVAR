@@ -1,0 +1,51 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "infer_vae",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "/opt/aeva/eve_py3env/bin/python",
+            "program": "infer_vae.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--data_dir",
+                "/home/dwang/sci/ImageNet/ILSVRC/Data/CLS-LOC_mini/",
+                "--data",
+                "imagenet"
+            ]
+        },
+        {
+            "name": "train_control_var",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "/opt/aeva/eve_py3env/bin/python",
+            "program": "train_control_var.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--data_dir",
+                "/home/dwang/sci/ImageNet/ILSVRC/Data/CLS-LOC_mini/train",
+            ]
+        },
+        {
+            "name": "train_VTON",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "/opt/aeva/eve_py3env/bin/python",
+            "program": "train_control_var.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--data_dir",
+                "/opt/disk1/dwang/sci/DVTON/data/VITON-HD/",
+                "--lr_scheduler",
+                "linear",
+                "--num_epochs",
+                "30",
+                "--batch_size", "32"
+            ]
+        }
+    ]
+}

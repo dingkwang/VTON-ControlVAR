@@ -9,7 +9,7 @@
 dataset_name: imagenetM
 data_dir: /mnt/data/ImageNet2012
 image_size: 256
-batch_size: 8
+batch_size: 16
 num_workers: 4
 # training
 num_epochs: 30

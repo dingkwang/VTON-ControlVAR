@@ -16,7 +16,7 @@ from torchvision.utils import make_grid
 from transformers import get_scheduler
 
 from datasets import create_dataset
-from models import VQVAE, VisualProgressAutoreg
+from models import VQVAE
 from utils.wandb import CustomWandbTracker
 from ruamel.yaml import YAML
 
@@ -25,19 +25,19 @@ def parse_args():
 
     # config file
     parser.add_argument("--config", type=str, default='configs/train_var_ImageNet_local.yaml', help="config file used to specify parameters")
-    parser.add_argument("--device", type=str, default='hpu', help="random seed")
+    parser.add_argument("--device", type=str, default='cuda', help="random seed")
 
     # data
-    parser.add_argument("--data", type=str, default=None, help="data")
+    parser.add_argument("--data", type=str, default="imagenet", help="data")
     parser.add_argument("--data_dir", type=str, default='imagenet/train', help="data folder")
     parser.add_argument("--dataset_name", type=str, default="imagenet", help="dataset name")
     parser.add_argument("--image_size", type=int, default=256, help="image size")
     parser.add_argument("--batch_size", type=int, default=4, help="per gpu batch size")
     parser.add_argument("--num_workers", type=int, default=8, help="batch size")
-
+    parser.add_argument("--output_dir", type=str, default="output", help="Output dir")
     # training
     parser.add_argument("--run_name", type=str, default=None, help="run_name")
-    parser.add_argument("--output_dir", type=str, default="experiments", help="output folder")
+    parser.add_argument("--f", type=str, default="experiments", help="output folder")
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--optimizer", type=str, default="adamw", help="optimizer")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="learning rate")

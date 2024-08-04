@@ -1,5 +1,5 @@
 from .vqvae import VQVAE
-from .vpa import VisualProgressAutoreg
+# from .vpa import VisualProgressAutoreg
 from .class_embedder import ClassEmbedder
 from .var import VAR
 from .control_var import ControlVAR
@@ -35,7 +35,7 @@ def build_control_var(
     else:
         raise NotImplementedError
 
-    return MaskVAR(
+    return ControlVAR(
         vae_local=vae, patch_nums=patch_nums,
         depth=depth, embed_dim=depth*64, num_heads=depth, drop_path_rate=0.1 * depth/24,
         aln=aln, aln_gamma_init=aln_gamma_init, shared_aln=shared_aln, layer_scale=layer_scale,
