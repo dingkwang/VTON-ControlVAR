@@ -11,7 +11,6 @@ from tqdm.auto import tqdm
 import wandb
 from PIL import Image
 
-import dist
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -126,8 +125,8 @@ def parse_args():
     parser.add_argument("--cond_drop_rate", type=float, default=0.1, help="drop rate of condition model")
 
     parser.add_argument("--seed", type=int, default=42, help="random seed")
-    parser.add_argument("--c_mask", type=bool, default=True, help='teaching force mask in validation')
-    parser.add_argument("--c_img", type=bool, default=False, help='teaching force img in validation')
+    parser.add_argument("--c_mask", type=bool, default=None, help='teaching force mask in validation')
+    parser.add_argument("--c_img", type=bool, default=True, help='teaching force img in validation')
     parser.add_argument("--cfg", nargs='+', type=float, default=[4, 4, 4], help='cfg guidance scale')
     parser.add_argument("--gibbs", type=int, default=0, help='use gibbs sampling during inference')
     parser.add_argument("--save_val", type=bool, default=False, help='save val images')
@@ -172,10 +171,12 @@ def train_epoch(accelerator, var, vqvae, cond_model, dataloader, optimizer, lr_s
                 # from labels get inputs fhat list: List[(B, 2**2, 32), (B, 3**2, 32))]
                 maskinpaint_input_h_list = vqvae.idxBl_to_h(mask_inpaint_labels_list)  # len 9
 
-                # mask_labels_list = vqvae.img_to_idxBl(resized_mask, v_patch_nums=args.v_patch_nums)
-                mask_cloth_labels_list = vqvae.img_to_idxBl(clothB3WH, v_patch_nums=args.v_patch_nums)
+                                # mask_labels_list = vqvae.img_to_idxBl(resized_mask, v_patch_nums=args.v_patch_nums)
+                mask_inpaint_labels_list = vqvae.img_to_idxBl(inpaintB3WH, v_patch_nums=args.v_patch_nums)
                 # from labels get inputs fhat list: List[(B, 2**2, 32), (B, 3**2, 32))]
-                maskcloth_input_h_list = vqvae.idxBl_to_h(mask_cloth_labels_list)  # len 9
+                maskinpaint_input_h_list = vqvae.idxBl_to_h(mask_inpaint_labels_list)  # len 9
+
+
 
                 # labels_list: List[(B, 1), (B, 4), (B, 9)]
                 labels_list = vqvae.img_to_idxBl(images, v_patch_nums=args.v_patch_nums)
@@ -187,39 +188,32 @@ def train_epoch(accelerator, var, vqvae, cond_model, dataloader, optimizer, lr_s
                     # Image: r1, r2, r3, Mask: m1, m2, m3
                     # New: r1, m2, r3
                     # Note that image goes first
-                    raise NotImplementedError
                     for i in range(len(input_h_list)):
                         if i % 2 == 0:
-                            labels_list[i] = maskcloth_input_h_list[i]
-                            input_h_list[i] = maskcloth_input_h_list[i]
+                            labels_list[i] = mask_labels_list[i]
+                            input_h_list[i] = mask_input_h_list[i]
                     mask_first = False
-
                 elif args.mask_type == 'interleave_append':
                     # Image: r1, r2, r3, Mask: m1, m2, m3
                     # New: (m1, r1), (m2, r2), (m3, r3)
                     # Note that mask goes first unless bidirectional enabled
                     if args.bidirectional and random.random() < 0.5:
-                        # labels_list_ = list(chain.from_iterable(zip(labels_list, mask_inpaint_labels_list)))
-                        # input_h_list_ = list(chain.from_iterable(zip(input_h_list, maskinpaint_input_h_list)))
-                        # mask_first = False
-                        raise NotImplementedError
+                        labels_list_ = list(chain.from_iterable(zip(labels_list, mask_labels_list)))
+                        input_h_list_ = list(chain.from_iterable(zip(input_h_list, mask_input_h_list)))
+                        mask_first = False
                     else:
-                        labels_list_ = list(
-                            chain.from_iterable(zip(mask_inpaint_labels_list, mask_cloth_labels_list, labels_list)))
-
-                        # 20 -> 30
-                        input_h_list_ = list(
-                            chain.from_iterable(zip(maskinpaint_input_h_list, maskcloth_input_h_list, input_h_list)))
-                        # 18 -> 27
+                        labels_list_ = list(chain.from_iterable(zip(mask_labels_list, labels_list)))
+                        # 20
+                        input_h_list_ = list(chain.from_iterable(zip(mask_input_h_list, input_h_list)))
+                        # 18
                         mask_first = True
                     labels_list, input_h_list = labels_list_, input_h_list_
                 else:
                     raise NotImplementedError
-            x_BLCv_wo_first_l = torch.concat(input_h_list, dim=1)  # (B, L=2037, C = 32)
+            x_BLCv_wo_first_l = torch.concat(input_h_list, dim=1)
 
             # forwad through model
-            ControlVAR.forward
-            logits = var.forward(conditions, x_BLCv_wo_first_l, mask_first=mask_first,cond_type=cond_type)  # BLC, C=vocab size
+            logits = var(conditions, x_BLCv_wo_first_l, mask_first=mask_first, cond_type=cond_type)  # BLC, C=vocab size
             logits = logits.view(-1, logits.size(-1))
             labels = torch.cat(labels_list, dim=1)
             labels = labels.view(-1)
@@ -301,15 +295,12 @@ def inference(accelerator,
 
     var.eval()
     cond_model.eval()
-    B = len(conditions)
-    cond_type =  torch.tensor([2, 2, 2, 2], device=dist.get_device()) # depth
     images = var.autoregressive_infer_cfg(B=len(conditions),
                                           label_B=torch.tensor(conditions, device=torch.device('cuda')),
                                           cfg=4,
                                           top_k=top_k,
                                           top_p=top_p,
-                                          g_seed=seed,
-                                          cond_type=cond_type)
+                                          g_seed=seed)
     image = make_grid(images, nrow=len(conditions), padding=0, pad_value=1.0)
     image = image.permute(1, 2, 0).mul_(255).cpu().numpy()
     image = Image.fromarray(image.astype(np.uint8))
@@ -319,12 +310,11 @@ def inference(accelerator,
     cond_model.train()
 
 
-def pix_cond_inference(images, inpaintB3WH, clothB3WH, conditions, cond_type, device, B, var, vqvae, c_mask, c_img, guidance_scale,
+def pix_cond_inference(images, masks, conditions, cond_type, device, B, var, vqvae, c_mask, c_img, guidance_scale,
                        top_k, top_p, seed, args):
     types = {'mask': 0, 'canny': 1, 'depth': 2, 'normal': 3, 'none': 4}
     images = images.to(device)
-    inpaintB3WH = inpaintB3WH.to(device)
-    clothB3WH = clothB3WH.to(device)
+    masks = masks.to(device)
     if isinstance(conditions, int):
         conditions = torch.tensor([conditions for _ in range(B)]).to(device)
     else:
@@ -336,21 +326,19 @@ def pix_cond_inference(images, inpaintB3WH, clothB3WH, conditions, cond_type, de
 
     with torch.no_grad():
         if c_mask:
-            mask_inpaint_labels_list =vqvae.img_to_idxBl(inpaintB3WH, v_patch_nums=args.v_patch_nums)
-            mask_cloth_labels_list = vqvae.img_to_idxBl(clothB3WH, v_patch_nums=args.v_patch_nums)
+            c_mask = vqvae.img_to_idxBl(masks, v_patch_nums=args.v_patch_nums)
         elif c_img:
             c_img = vqvae.img_to_idxBl(images, v_patch_nums=args.v_patch_nums)
         else:
-            raise NotImplementedError()
-        assert c_img is False
-        ControlVAR.conditional_infer_cfg
+            c_mask, c_img = None, None
+
         images = var.conditional_infer_cfg(B=B,
                                            label_B=conditions,
                                            cfg=guidance_scale,
                                            top_k=top_k,
                                            top_p=top_p,
                                            g_seed=seed,
-                                           c_mask=[mask_inpaint_labels_list, mask_cloth_labels_list],
+                                           c_mask=c_mask,
                                            c_img=c_img,
                                            cond_type=cond_type)
         # htcore.mark_step()
@@ -387,7 +375,7 @@ def validate(var,
                 batch['GT'], batch['inpaint_image'], batch['label'], batch['type'], batch["cloth_pure"], batch["mask"]
 
             B = masks.shape[0]
-            images = pix_cond_inference(images, inpaintB3WH,clothB3WH, conditions, cond_type, device, B, var, vqvae, c_mask, c_img,
+            images = pix_cond_inference(images, masks, conditions, cond_type, device, B, var, vqvae, c_mask, c_img,
                                         guidance_scale, top_k, top_p, seed, args)
             if save_val:
                 images = images.permute(0, 2, 3, 1).mul_(255).cpu().numpy().astype(np.uint8)
@@ -701,6 +689,7 @@ def main():
 
         # train epoch
         train_epoch(accelerator, var, vqvae, cond_model, dataloader, optimizer, lr_scheduler, progress_bar, args)
+
         if epoch % args.val_interval == 0:
             label_condition = [834] * 4
             inference(accelerator,

@@ -31,3 +31,4 @@ drop_path_rate: 0.1
 condition_model: class_embedder
 num_classes: 1000
 cond_drop_rate: 0.1
+multi_cond: True

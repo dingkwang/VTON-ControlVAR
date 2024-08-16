@@ -38,13 +38,15 @@
             "program": "train_control_var.py",
             "console": "integratedTerminal",
             "args": [
+                "--config", 
+                "configs/train_mask_var_ImageNetS_local.yaml",
                 "--data_dir",
                 "/opt/disk1/dwang/sci/DVTON/data/VITON-HD/",
                 "--lr_scheduler",
                 "linear",
                 "--num_epochs",
                 "30",
-                "--batch_size", "32"
+                "--batch_size", "16"
             ]
         }
     ]

@@ -92,10 +92,13 @@ class VQVAE(nn.Module):
         return ms_img
     
     def img_to_idxBl(self, inp_img_no_grad: torch.Tensor, v_patch_nums: Optional[Sequence[Union[int, Tuple[int, int]]]] = None) -> List[torch.Tensor]:    # return List[Bl]
+        # 将输入图像通过编码器编码，并通过量化卷积进行量化
         f = self.quant_conv(self.encoder(inp_img_no_grad))
+        # 调用量化函数，将编码后的特征 f 转换为量化索引 Bl
         return self.quantize.f_to_idxBl_or_fhat(f, to_fhat=False, v_patch_nums=v_patch_nums)
     
-    def idxBl_to_h(self, gt_ms_idx_Bl: List[torch.Tensor]): 
+    def idxBl_to_h(self, gt_ms_idx_Bl: List[torch.Tensor]):
+        # 量化索引转换为特征向量
         return self.quantize.idxBl_to_var_input(gt_ms_idx_Bl)
     
     def img_to_recon(self, x, v_patch_nums: Optional[Sequence[Union[int, Tuple[int, int]]]] = None, last_one=False) -> List[torch.Tensor]:

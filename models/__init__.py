@@ -31,7 +31,7 @@ def build_control_var(
     if mask_type == 'replace':
         mask_factor = 1
     elif mask_type == 'interleave_append':
-        mask_factor = 2
+        mask_factor = 3
     else:
         raise NotImplementedError
 
